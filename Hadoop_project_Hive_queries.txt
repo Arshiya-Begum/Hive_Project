@@ -1,0 +1,260 @@
+# Creating Database
+hive> create database project_test;
+
+# Using the above created database
+hive> use project_test;
+
+# Creating chanA table to load the data present in join2_genchanA.txt with columns as Show Name and Channel Name
+hive> create table chanA(showname string, channel string) row format delimited fields terminated by ',';
+
+# Viewing the columns present in above created table
+hive> describe chanA;
+OK
+showname        string
+channel string
+
+# Creating chanB table to load the data present in join2_genchanB.txt with columns as Show Name and Channel Name
+hive> create table chanB(showname string, channel string) row format delimited fields terminated by ',';
+
+# Creating chanC table to load the data present in join2_genchanC.txt with columns as Show Name and Channel Name
+hive> create table chanC(showname string, channel string) row format delimited fields terminated by ',';
+
+# Loading join2_genchanA.txt file into chanA table
+hive> load data local inpath '/home/training/join/join2_genchanA.txt' into table chanA;
+
+# Loading join2_genchanB.txt file into chanB table
+hive> load data local inpath '/home/training/join/join2_genchanB.txt' into table chanB;
+
+# Loading join2_genchanC.txt file into chanC table
+hive> load data local inpath '/home/training/join/join2_genchanC.txt' into table chanC;
+
+# Creating numA table to load the data present in join2_gennumA.txt with columns as Show Name and Number of Views
+hive> create table numA (showname string, views int) row format delimited fields terminated by ',';
+
+# Creating numB table to load the data present in join2_gennumB.txt with columns as Show Name and Number of Views
+hive> create table numB (showname string, views int) row format delimited fields terminated by ',';
+
+# Creating numC table to load the data present in join2_gennumC.txt with columns as Show Name and Number of Views
+hive> create table numC (showname string, views int) row format delimited fields terminated by ',';
+
+# Loading join2_gennumA.txt file into numA table
+hive> load data local inpath '/home/training/join/join2_gennumA.txt' into table numA;
+
+# Loading join2_gennumB.txt file into numB table
+hive> load data local inpath '/home/training/join/join2_gennumB.txt' into table numB;
+
+# Loading join2_gennumB.txt file into numC table
+hive> load data local inpath '/home/training/join/join2_gennumC.txt' into table numC;
+
+# Creating a new table "show_views", for consolidating and merging data present in numA, numB and numC into a common single table with column name Show name and Number of views.
+hive> create table show_views (showname string, views int) row format delimited fields terminated by ',';
+
+# inserting consolidated data achieved using UNION ALL sub-queries command, into above created "show_views" table
+hive> insert overwrite table show_views
+    > select showname,sum(views) from ( select showname, views from numA UNION ALL select showname, views from ( select showname, views from numB UNION ALL select showname, views from numC)s )s
+    > GROUP BY showname;
+
+# Viewing table inserted in "show_views" table
+hive> select * from show_views;
+
+# Creating a new table "show_channel", for consolidating and merging data present in chanA, chanB and chanC into a common single table with column name Show name and Channel Name.
+hive> create table show_channel(showname string, channel string) row format delimited fields terminated by ',';
+
+# inserting consolidated data achieved using UNION ALL sub-queries command, into above created "show_channel" table
+hive> insert overwrite table show_channel
+    > select showname, channel from (select showname, channel from chanA UNION ALL select showname, channel from (select showname, channel from chanB UNION ALL select showname, channel from chanC)s )s
+    > GROUP BY showname, channel;
+
+# Viewing table inserted in "show_channel" table
+hive> select * from show_channel;
+
+# Creating a new table "show_channel_views", for holding data achived by JOINING above created consolidated tables "show_views" and "show_channel" with column name Show name, Channel Name and Number of Views.
+hive> create table show_channel_views(showname string, channel string, views int) row format delimited fields terminated by ',';
+
+# inserting data achived using FULL OUTER JOIN query across show_channel and show_views tables.
+hive> insert overwrite table show_channel_views
+    > select show_channel.showname,show_channel.channel,show_views.views from show_channel FULL OUTER JOIN show_views ON show_channel.showname=show_views.showname;
+
+# Viewing tables inserted in "show_channel_views" table
+hive> select * from show_channel_views;
+
+Question-1 : What is the total number of viewers for shows on ABC?
+============
+-->total sum of viewers of all the shows on ABC channel 
+   ====================================================
+    hive> select channel,sum(views) from show_channel_views where channel="ABC" GROUP BY channel; 
+    OK
+ABC     1115974
+Time taken: 36.252 seconds
+ --> sum of number of viewers on each show on ABC channel
+    ====================================================
+    hive> select channel,showname,views from show_channel_views where channel="ABC";
+    OK
+ABC     Almost_Games    49237
+ABC     Almost_News     46592
+ABC     Almost_Show     50202
+ABC     Baked_Games     51604
+ABC     Baked_News      47211
+ABC     Cold_News       47924
+ABC     Cold_Sports     52005
+ABC     Dumb_Show       53824
+ABC     Dumb_Talking    103894
+ABC     Hot_Games       50228
+ABC     Hot_Show        54378
+ABC     Hourly_Cooking  54208
+ABC     Hourly_Show     48283
+ABC     Hourly_Talking  108163
+ABC     Loud_Games      49482
+ABC     Loud_Show       50820
+ABC     PostModern_Games        50644
+ABC     PostModern_News 50021
+ABC     Surreal_News    50420
+ABC     Surreal_Sports  46834
+Time taken: 54.647 seconds
+
+Question-2 : What is the number of viewers for the BAT channel?
+============
+-->total sum of viewers of all the shows on BAT channel 
+   ====================================================
+    hive> select channel,sum(views) from show_channel_views where channel="BAT" GROUP BY channel;
+    OK
+BAT     3031762
+Time taken: 64.765 seconds
+--> sum of number of viewers on each show on BAT channel
+    ====================================================
+    hive> select channel,showname,views from show_channel_views where channel="BAT";
+    OK
+BAT     Almost_Cooking  49501
+BAT     Almost_Games    49237
+BAT     Almost_News     46592
+BAT     Almost_Show     50202
+BAT     Almost_Sports   49307
+BAT     Almost_Talking  101427
+BAT     Baked_Cooking   48994
+BAT     Baked_Games     51604
+BAT     Baked_News      47211
+BAT     Baked_Show      48413
+BAT     Baked_Sports    51786
+BAT     Baked_Talking   95103
+BAT     Cold_Cooking    51932
+BAT     Cold_Games      47524
+BAT     Cold_News       47924
+BAT     Cold_Sports     52005
+BAT     Cold_Talking    94981
+BAT     Dumb_Cooking    51647
+BAT     Dumb_Games      50596
+BAT     Dumb_News       52233
+BAT     Dumb_Show       53824
+BAT     Dumb_Talking    103894
+BAT     Hot_Cooking     51694
+BAT     Hot_Games       50228
+BAT     Hot_News        56189
+BAT     Hot_Show        54378
+BAT     Hot_Sports      49266
+BAT     Hot_Talking     98810
+BAT     Hourly_Cooking  54208
+BAT     Hourly_Games    54146
+BAT     Hourly_News     50604
+BAT     Hourly_Show     48283
+BAT     Hourly_Sports   54050
+BAT     Hourly_Talking  108163
+BAT     Loud_Cooking    48555
+BAT     Loud_Games      49482
+BAT     Loud_News       49166
+BAT     Loud_Show       50820
+BAT     Loud_Sports     48220
+BAT     Loud_Talking    102238
+BAT     PostModern_Cooking      50648
+BAT     PostModern_Games        50644
+BAT     PostModern_News 50021
+BAT     PostModern_Show 48775
+BAT     PostModern_Sports       50204
+BAT     PostModern_Talking      96818
+BAT     Surreal_Cooking 51880
+BAT     Surreal_Games   53681
+BAT     Surreal_Show    48462
+BAT     Surreal_Sports  46834
+BAT     Surreal_Talking 109358
+Time taken: 77.824 seconds
+
+
+Question-3 : What is the most viewed show on ABC channel?
+============
+hive> select DISTINCT a.showname,a.views from show_channel_views a RIGHT OUTER JOIN
+    > ( select max(views) AS views from show_channel_views where channel="ABC") b
+    > ON a.views=b.views;
+OK
+Hourly_Talking  108163
+Time taken: 209.718 seconds
+
+Question-4 : What are the aired shows on ZOO,NOX, ABC channels ?
+============
+--> Shows aired either on ZOO or NOX or ABC channels
+    ================================================
+    hive> select channel,showname from show_channel_views where channel IN ("ZOO","NOX","ABC");
+    OK
+NOX     Almost_Games
+ABC     Almost_Games
+ABC     Almost_News
+NOX     Almost_News
+ABC     Almost_Show
+NOX     Almost_Show
+NOX     Almost_Sports
+NOX     Baked_Cooking
+ABC     Baked_Games
+NOX     Baked_Games
+ABC     Baked_News
+NOX     Baked_News
+NOX     Baked_Show
+NOX     Baked_Talking
+NOX     Cold_Cooking
+ABC     Cold_News
+NOX     Cold_News
+ABC     Cold_Sports
+NOX     Cold_Sports
+NOX     Cold_Talking
+NOX     Dumb_Cooking
+NOX     Dumb_Games
+ABC     Dumb_Show
+NOX     Dumb_Show
+ABC     Dumb_Talking
+NOX     Dumb_Talking
+NOX     Hot_Cooking
+ABC     Hot_Games
+NOX     Hot_Games
+NOX     Hot_News
+ABC     Hot_Show
+NOX     Hot_Show
+NOX     Hot_Talking
+ABC     Hourly_Cooking
+NOX     Hourly_Games
+NOX     Hourly_News
+ABC     Hourly_Show
+NOX     Hourly_Show
+NOX     Hourly_Sports
+ABC     Hourly_Talking
+NOX     Hourly_Talking
+NOX     Loud_Cooking
+ABC     Loud_Games
+ABC     Loud_Show
+NOX     Loud_Sports
+NOX     Loud_Talking
+NOX     PostModern_Cooking
+ABC     PostModern_Games
+ABC     PostModern_News
+NOX     PostModern_Show
+NOX     PostModern_Sports
+NOX     PostModern_Talking
+NOX     Surreal_Cooking
+ABC     Surreal_News
+NOX     Surreal_Show
+ABC     Surreal_Sports
+NOX     Surreal_Talking
+Time taken: 52.727 seconds
+
+--> Shows commonly aired on ZOO,NOX , and ABC channels
+    ==================================================
+    hive> select channel,showname from show_channel_views where channel="ZOO" AND channel="NOX" AND channel="ABC";
+    OK 
+Time taken: 52.689 seconds
+Note : There are no common shows that are aired across ZOO, NOX and ABC channels. Hence output has no data listed.
